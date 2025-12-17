@@ -106,7 +106,7 @@ outputs:
     value: ${{ steps.libpath.outputs.libpath }}
   tmp-path:
     description: "Temporary path with each library tests"
-    value: ${{ steps.set-paths.outputs.tmp-path }}
+    value: ${{ runner.temp }}
 
 runs:
   using: composite
@@ -162,13 +162,6 @@ runs:
       env:
         GITHUB_TOKEN: ${{ inputs.github-token }}
 
-    - name: Set TEMPDIR for libraries
-      shell: bash
-      id: set-paths
-      run: |
-        echo "TEMPDIR=$RUNNER_TEMP" >> $GITHUB_ENV
-        echo "tmp-path=$RUNNER_TEMP" >> $GITHUB_OUTPUT
-
     - name: "Calculate DESTDIR for Bats-support"
       if: inputs.support-install == 'true'
       id: calculate-support-destdir
@@ -195,7 +188,7 @@ runs:
       run: |
         VERSION=${{ inputs.support-version }}
         url="https://github.com/bats-core/bats-support/archive/refs/tags/v${VERSION}.tar.gz"
-        TEMPDIR="${TEMPDIR}/bats-support"
+        TEMPDIR="$RUNNER_TEMP/bats-support"
         DESTDIR=${SUPPORT_DESTDIR}
 
         # Determine if sudo is needed by checking write permissions
@@ -242,7 +235,7 @@ runs:
       run: |
         VERSION=${{ inputs.assert-version }}
         url="https://github.com/bats-core/bats-assert/archive/refs/tags/v${VERSION}.tar.gz"
-        TEMPDIR="${TEMPDIR}/bats-assert"
+        TEMPDIR="$RUNNER_TEMP/bats-assert"
         DESTDIR=${ASSERT_DESTDIR}
 
         # Determine if sudo is needed by checking write permissions
@@ -289,7 +282,7 @@ runs:
       run: |
         VERSION=${{ inputs.detik-version }}
         url="https://github.com/bats-core/bats-detik/archive/refs/tags/v${VERSION}.tar.gz"
-        TEMPDIR="${TEMPDIR}/bats-detik"
+        TEMPDIR="$RUNNER_TEMP/bats-detik"
         DESTDIR="${DETIK_DESTDIR}"
 
         # Determine if sudo is needed by checking write permissions
@@ -335,7 +328,7 @@ runs:
       run: |
         VERSION=${{ inputs.file-version }}
         url="https://github.com/bats-core/bats-file/archive/refs/tags/v${VERSION}.tar.gz"
-        TEMPDIR="${TEMPDIR}/bats-file"
+        TEMPDIR="$RUNNER_TEMP/bats-file"
         DESTDIR="${FILE_DESTDIR}"
 
         # Determine if sudo is needed by checking write permissions
@@ -391,4 +384,4 @@ runs:
         echo "Detik installed: ${{ (steps.detik-install.outputs.detik-installed != '') }}"
         echo "File installed: ${{ (steps.file-install.outputs.file-installed != '') }}"
         echo "Bats lib to use in BATS_LIB_PATH env ${{ steps.libpath.outputs.libpath }}"
-        echo "Tmp path: ${{ steps.set-paths.outputs.tmp-path }}"
+        echo "Tmp path: ${{ runner.temp }}"
