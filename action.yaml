@@ -166,13 +166,8 @@ runs:
       shell: bash
       id: set-paths
       run: |
-        if [[ "$RUNNER_OS" == "Windows" ]]; then
-          TEMPDIR="$HOME/AppData/Local/Temp"
-        else
-          TEMPDIR="/tmp"
-        fi
-        echo "TEMPDIR=$TEMPDIR" >> $GITHUB_ENV
-        echo "tmp-path=$TEMPDIR" >> $GITHUB_OUTPUT
+        echo "TEMPDIR=$RUNNER_TEMP" >> $GITHUB_ENV
+        echo "tmp-path=$RUNNER_TEMP" >> $GITHUB_OUTPUT
 
     - name: "Calculate DESTDIR for Bats-support"
       if: inputs.support-install == 'true'
