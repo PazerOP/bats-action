@@ -23,9 +23,9 @@ inputs:
     required: false
     default: "0.3.0"
   support-path:
-    description: "Bats-support path, default to /usr/lib/bats-support"
+    description: "Bats-support path, default to ~/.local/share/bats-libs/bats-support"
     required: false
-    default: "/usr/lib/bats-support"
+    default: "~/.local/share/bats-libs/bats-support"
   support-clean:
     description: "Bats-support: clean temp files"
     required: false
@@ -40,9 +40,9 @@ inputs:
     required: false
     default: "2.1.0"
   assert-path:
-    description: "Bats-assert path, default to /usr/lib/bats-assert"
+    description: "Bats-assert path, default to ~/.local/share/bats-libs/bats-assert"
     required: false
-    default: "/usr/lib/bats-assert"
+    default: "~/.local/share/bats-libs/bats-assert"
   assert-clean:
     description: "Bats-assert: clean temp files"
     required: false
@@ -57,9 +57,9 @@ inputs:
     required: false
     default: "1.3.2"
   detik-path:
-    description: "Bats-detik path, default to /usr/lib/bats-detik"
+    description: "Bats-detik path, default to ~/.local/share/bats-libs/bats-detik"
     required: false
-    default: "/usr/lib/bats-detik"
+    default: "~/.local/share/bats-libs/bats-detik"
   detik-clean:
     description: "Bats-detik: clean temp files"
     required: false
@@ -74,9 +74,9 @@ inputs:
     required: false
     default: "0.4.0"
   file-path:
-    description: "Bats-file path, default to /usr/lib/bats-file"
+    description: "Bats-file path, default to ~/.local/share/bats-libs/bats-file"
     required: false
-    default: "/usr/lib/bats-file"
+    default: "~/.local/share/bats-libs/bats-file"
   file-clean:
     description: "Bats-file: clean temp files"
     required: false
@@ -120,6 +120,8 @@ runs:
         path: |
           ~/.local/share/bats
         key: ${{ runner.os }}-${{ runner.arch }}-bats-${{ inputs.bats-version }}
+        restore-keys: |
+          ${{ runner.os }}-${{ runner.arch }}-bats-
 
     - name: "Set PATH in case of cache-hit"
       if: inputs.bats-install == 'true' && steps.bats-cache.outputs.cache-hit == 'true'
@@ -164,23 +166,16 @@ runs:
       shell: bash
       id: set-paths
       run: |
-        if [[ "$RUNNER_OS" == "macOS" ]]; then
-          DEFAULT_BASE_DIR="/usr/local/lib"
-          [[ "${DEFAULT_BASE_DIR}" == "$HOME"* ]] && CMD="" || CMD="sudo"
-          TEMPDIR="/tmp"
-        elif [[ "$RUNNER_OS" == "Windows" ]]; then
-          DEFAULT_BASE_DIR="/c/Users/runneradmin"
-          CMD=""
+        # Use user-writable paths by default to avoid permission issues with caching
+        DEFAULT_BASE_DIR="$HOME/.local/share/bats-libs"
+        if [[ "$RUNNER_OS" == "Windows" ]]; then
           TEMPDIR="$HOME/AppData/Local/Temp"
         else
-          DEFAULT_BASE_DIR="/usr/lib"
-          [[ "${DEFAULT_BASE_DIR}" == "$HOME"* ]] && CMD="" || CMD="sudo"
           TEMPDIR="/tmp"
         fi
 
         echo "_LIB_PATH=$DEFAULT_BASE_DIR" >> /tmp/bats-lib-path
         echo "DEFAULT_BASE_DIR=$DEFAULT_BASE_DIR" >> $GITHUB_ENV
-        echo "CMD=$CMD" >> $GITHUB_ENV
         echo "TEMPDIR=$TEMPDIR" >> $GITHUB_ENV
         echo "tmp-path=$TEMPDIR" >> $GITHUB_OUTPUT
 
@@ -189,10 +184,19 @@ runs:
       id: calculate-support-destdir
       shell: bash
       run: |
-        if [ -z "${{ inputs.support-path }}" ] || [ "${{ inputs.support-path }}" == "/usr/lib/bats-support" ]; then
+        INPUT_PATH="${{ inputs.support-path }}"
+        # Expand tilde to $HOME
+        EXPANDED_PATH="${INPUT_PATH/#\~/$HOME}"
+        if [ -z "$INPUT_PATH" ] || [ "$INPUT_PATH" == "~/.local/share/bats-libs/bats-support" ]; then
           echo "SUPPORT_DESTDIR=${DEFAULT_BASE_DIR}/bats-support" >> $GITHUB_ENV
         else
-          echo "SUPPORT_DESTDIR=${{ inputs.support-path }}" >> $GITHUB_ENV
+          echo "SUPPORT_DESTDIR=$EXPANDED_PATH" >> $GITHUB_ENV
+        fi
+        # Determine if sudo is needed based on path
+        if [[ "$EXPANDED_PATH" == /usr/* ]] || [[ "$EXPANDED_PATH" == /opt/* ]]; then
+          echo "SUPPORT_CMD=sudo" >> $GITHUB_ENV
+        else
+          echo "SUPPORT_CMD=" >> $GITHUB_ENV
         fi
 
     - name: "Set cache for Bats-support"
@@ -202,6 +206,8 @@ runs:
       with:
         path: ${{ env.SUPPORT_DESTDIR }}
         key: ${{ runner.os }}-${{ runner.arch }}-bats-support-${{ inputs.support-version }}
+        restore-keys: |
+          ${{ runner.os }}-${{ runner.arch }}-bats-support-
 
     - name: "Download and install Bats-support"
       if: inputs.support-install == 'true' && steps.support-cache.outputs.cache-hit != 'true'
@@ -212,8 +218,11 @@ runs:
         url="https://github.com/bats-core/bats-support/archive/refs/tags/v${VERSION}.tar.gz"
         TEMPDIR="${TEMPDIR}/bats-support"
         DESTDIR=${SUPPORT_DESTDIR}
+        CMD=${SUPPORT_CMD}
 
         mkdir -p ${TEMPDIR}
+        # Ensure parent directories exist
+        mkdir -p "$(dirname "$DESTDIR")"
         ${CMD} mkdir -p ${DESTDIR}/src/
         curl -sL --retry 4 --retry-connrefused ${url} | tar xz -C ${TEMPDIR} --strip-components 1 && cd ${TEMPDIR}
         # Archlinux style, except that we are not in a fakeroot env
@@ -231,10 +240,19 @@ runs:
       id: calculate-assert-destdir
       shell: bash
       run: |
-        if [ -z "${{ inputs.assert-path }}" ] || [ "${{ inputs.assert-path }}" == "/usr/lib/bats-assert" ]; then
+        INPUT_PATH="${{ inputs.assert-path }}"
+        # Expand tilde to $HOME
+        EXPANDED_PATH="${INPUT_PATH/#\~/$HOME}"
+        if [ -z "$INPUT_PATH" ] || [ "$INPUT_PATH" == "~/.local/share/bats-libs/bats-assert" ]; then
           echo "ASSERT_DESTDIR=${DEFAULT_BASE_DIR}/bats-assert" >> $GITHUB_ENV
         else
-          echo "ASSERT_DESTDIR=${{ inputs.assert-path }}" >> $GITHUB_ENV
+          echo "ASSERT_DESTDIR=$EXPANDED_PATH" >> $GITHUB_ENV
+        fi
+        # Determine if sudo is needed based on path
+        if [[ "$EXPANDED_PATH" == /usr/* ]] || [[ "$EXPANDED_PATH" == /opt/* ]]; then
+          echo "ASSERT_CMD=sudo" >> $GITHUB_ENV
+        else
+          echo "ASSERT_CMD=" >> $GITHUB_ENV
         fi
 
     - name: "Set cache for Bats-assert"
@@ -244,6 +262,8 @@ runs:
       with:
         path: ${{ env.ASSERT_DESTDIR }}
         key: ${{ runner.os }}-${{ runner.arch }}-bats-assert-${{ inputs.assert-version }}
+        restore-keys: |
+          ${{ runner.os }}-${{ runner.arch }}-bats-assert-
 
     - name: "Download and install Bats-assert"
       if: inputs.assert-install == 'true' && steps.assert-cache.outputs.cache-hit != 'true'
@@ -254,8 +274,11 @@ runs:
         url="https://github.com/bats-core/bats-assert/archive/refs/tags/v${VERSION}.tar.gz"
         TEMPDIR="${TEMPDIR}/bats-assert"
         DESTDIR=${ASSERT_DESTDIR}
+        CMD=${ASSERT_CMD}
 
         mkdir -p ${TEMPDIR}
+        # Ensure parent directories exist
+        mkdir -p "$(dirname "$DESTDIR")"
         ${CMD} mkdir -p ${DESTDIR}/src/
         curl -sL --retry 4 --retry-connrefused ${url} | tar xz -C ${TEMPDIR} --strip-components 1 && cd ${TEMPDIR}
         # Archlinux style, except that we are not in a fakeroot env
@@ -273,10 +296,19 @@ runs:
       id: calculate-detik-destdir
       shell: bash
       run: |
-        if [ -z "${{ inputs.detik-path }}" ] || [ "${{ inputs.detik-path }}" == "/usr/lib/bats-detik" ]; then
+        INPUT_PATH="${{ inputs.detik-path }}"
+        # Expand tilde to $HOME
+        EXPANDED_PATH="${INPUT_PATH/#\~/$HOME}"
+        if [ -z "$INPUT_PATH" ] || [ "$INPUT_PATH" == "~/.local/share/bats-libs/bats-detik" ]; then
           echo "DETIK_DESTDIR=${DEFAULT_BASE_DIR}/bats-detik" >> $GITHUB_ENV
         else
-          echo "DETIK_DESTDIR=${{ inputs.detik-path }}" >> $GITHUB_ENV
+          echo "DETIK_DESTDIR=$EXPANDED_PATH" >> $GITHUB_ENV
+        fi
+        # Determine if sudo is needed based on path
+        if [[ "$EXPANDED_PATH" == /usr/* ]] || [[ "$EXPANDED_PATH" == /opt/* ]]; then
+          echo "DETIK_CMD=sudo" >> $GITHUB_ENV
+        else
+          echo "DETIK_CMD=" >> $GITHUB_ENV
         fi
 
     - name: "Set cache for Bats-detik"
@@ -286,6 +318,8 @@ runs:
       with:
         path: ${{ env.DETIK_DESTDIR }}
         key: ${{ runner.os }}-${{ runner.arch }}-bats-detik-${{ inputs.detik-version }}
+        restore-keys: |
+          ${{ runner.os }}-${{ runner.arch }}-bats-detik-
 
     - name: "Download and install Bats-detik"
       if: inputs.detik-install == 'true' && steps.detik-cache.outputs.cache-hit != 'true'
@@ -296,11 +330,14 @@ runs:
         url="https://github.com/bats-core/bats-detik/archive/refs/tags/v${VERSION}.tar.gz"
         TEMPDIR="${TEMPDIR}/bats-detik"
         DESTDIR="${DETIK_DESTDIR}"
+        CMD=${DETIK_CMD}
 
         mkdir -p ${TEMPDIR}
+        # Ensure parent directories exist
+        mkdir -p "$(dirname "$DESTDIR")"
         ${CMD} mkdir -p ${DESTDIR}/src/
         curl -sL --retry 4 --retry-connrefused ${url} | tar xz -C ${TEMPDIR} --strip-components 1 && cd ${TEMPDIR}
-        # Archlinux style, except that we are not in a fakeroot env so we need to use sudo
+        # Archlinux style, except that we are not in a fakeroot env so we may need to use sudo
         for fn in lib/*.bash; do
           ${CMD} install -m755 $fn \
              ${DESTDIR}/$(basename $fn)
@@ -314,10 +351,19 @@ runs:
       id: calculate-file-destdir
       shell: bash
       run: |
-        if [ -z "${{ inputs.file-path }}" ] || [ "${{ inputs.file-path }}" == "/usr/lib/bats-file" ]; then
+        INPUT_PATH="${{ inputs.file-path }}"
+        # Expand tilde to $HOME
+        EXPANDED_PATH="${INPUT_PATH/#\~/$HOME}"
+        if [ -z "$INPUT_PATH" ] || [ "$INPUT_PATH" == "~/.local/share/bats-libs/bats-file" ]; then
           echo "FILE_DESTDIR=${DEFAULT_BASE_DIR}/bats-file" >> $GITHUB_ENV
         else
-          echo "FILE_DESTDIR=${{ inputs.file-path }}" >> $GITHUB_ENV
+          echo "FILE_DESTDIR=$EXPANDED_PATH" >> $GITHUB_ENV
+        fi
+        # Determine if sudo is needed based on path
+        if [[ "$EXPANDED_PATH" == /usr/* ]] || [[ "$EXPANDED_PATH" == /opt/* ]]; then
+          echo "FILE_CMD=sudo" >> $GITHUB_ENV
+        else
+          echo "FILE_CMD=" >> $GITHUB_ENV
         fi
 
     - name: "Set cache for Bats-file"
@@ -327,6 +373,8 @@ runs:
       with:
         path: ${{ env.FILE_DESTDIR }}
         key: ${{ runner.os }}-${{ runner.arch }}-bats-file-${{ inputs.file-version }}
+        restore-keys: |
+          ${{ runner.os }}-${{ runner.arch }}-bats-file-
 
     - name: "Download and install Bats-file"
       if: inputs.file-install == 'true' && steps.file-cache.outputs.cache-hit != 'true'
@@ -337,8 +385,11 @@ runs:
         url="https://github.com/bats-core/bats-file/archive/refs/tags/v${VERSION}.tar.gz"
         TEMPDIR="${TEMPDIR}/bats-file"
         DESTDIR="${FILE_DESTDIR}"
+        CMD=${FILE_CMD}
 
         mkdir -p ${TEMPDIR}
+        # Ensure parent directories exist
+        mkdir -p "$(dirname "$DESTDIR")"
         ${CMD} mkdir -p ${DESTDIR}/src/
         curl -sL --retry 4 --retry-connrefused ${url} | tar xz -C ${TEMPDIR} --strip-components 1 && cd ${TEMPDIR}
         # Archlinux style, except that we are not in a fakeroot env
