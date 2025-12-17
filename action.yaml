@@ -188,15 +188,18 @@ runs:
         # Expand tilde to $HOME
         EXPANDED_PATH="${INPUT_PATH/#\~/$HOME}"
         if [ -z "$INPUT_PATH" ] || [ "$INPUT_PATH" == "~/.local/share/bats-libs/bats-support" ]; then
-          echo "SUPPORT_DESTDIR=${DEFAULT_BASE_DIR}/bats-support" >> $GITHUB_ENV
+          FINAL_PATH="${DEFAULT_BASE_DIR}/bats-support"
         else
-          echo "SUPPORT_DESTDIR=$EXPANDED_PATH" >> $GITHUB_ENV
+          FINAL_PATH="$EXPANDED_PATH"
         fi
-        # Determine if sudo is needed based on path
-        if [[ "$EXPANDED_PATH" == /usr/* ]] || [[ "$EXPANDED_PATH" == /opt/* ]]; then
-          echo "SUPPORT_CMD=sudo" >> $GITHUB_ENV
-        else
+        echo "SUPPORT_DESTDIR=$FINAL_PATH" >> $GITHUB_ENV
+        # Determine if sudo is needed by checking write permissions on parent directory
+        PARENT_DIR="$(dirname "$FINAL_PATH")"
+        mkdir -p "$PARENT_DIR" 2>/dev/null || true
+        if [[ -w "$PARENT_DIR" ]]; then
           echo "SUPPORT_CMD=" >> $GITHUB_ENV
+        else
+          echo "SUPPORT_CMD=sudo" >> $GITHUB_ENV
         fi
 
     - name: "Set cache for Bats-support"
@@ -244,15 +247,18 @@ runs:
         # Expand tilde to $HOME
         EXPANDED_PATH="${INPUT_PATH/#\~/$HOME}"
         if [ -z "$INPUT_PATH" ] || [ "$INPUT_PATH" == "~/.local/share/bats-libs/bats-assert" ]; then
-          echo "ASSERT_DESTDIR=${DEFAULT_BASE_DIR}/bats-assert" >> $GITHUB_ENV
+          FINAL_PATH="${DEFAULT_BASE_DIR}/bats-assert"
         else
-          echo "ASSERT_DESTDIR=$EXPANDED_PATH" >> $GITHUB_ENV
+          FINAL_PATH="$EXPANDED_PATH"
         fi
-        # Determine if sudo is needed based on path
-        if [[ "$EXPANDED_PATH" == /usr/* ]] || [[ "$EXPANDED_PATH" == /opt/* ]]; then
-          echo "ASSERT_CMD=sudo" >> $GITHUB_ENV
-        else
+        echo "ASSERT_DESTDIR=$FINAL_PATH" >> $GITHUB_ENV
+        # Determine if sudo is needed by checking write permissions on parent directory
+        PARENT_DIR="$(dirname "$FINAL_PATH")"
+        mkdir -p "$PARENT_DIR" 2>/dev/null || true
+        if [[ -w "$PARENT_DIR" ]]; then
           echo "ASSERT_CMD=" >> $GITHUB_ENV
+        else
+          echo "ASSERT_CMD=sudo" >> $GITHUB_ENV
         fi
 
     - name: "Set cache for Bats-assert"
@@ -300,15 +306,18 @@ runs:
         # Expand tilde to $HOME
         EXPANDED_PATH="${INPUT_PATH/#\~/$HOME}"
         if [ -z "$INPUT_PATH" ] || [ "$INPUT_PATH" == "~/.local/share/bats-libs/bats-detik" ]; then
-          echo "DETIK_DESTDIR=${DEFAULT_BASE_DIR}/bats-detik" >> $GITHUB_ENV
+          FINAL_PATH="${DEFAULT_BASE_DIR}/bats-detik"
         else
-          echo "DETIK_DESTDIR=$EXPANDED_PATH" >> $GITHUB_ENV
+          FINAL_PATH="$EXPANDED_PATH"
         fi
-        # Determine if sudo is needed based on path
-        if [[ "$EXPANDED_PATH" == /usr/* ]] || [[ "$EXPANDED_PATH" == /opt/* ]]; then
-          echo "DETIK_CMD=sudo" >> $GITHUB_ENV
-        else
+        echo "DETIK_DESTDIR=$FINAL_PATH" >> $GITHUB_ENV
+        # Determine if sudo is needed by checking write permissions on parent directory
+        PARENT_DIR="$(dirname "$FINAL_PATH")"
+        mkdir -p "$PARENT_DIR" 2>/dev/null || true
+        if [[ -w "$PARENT_DIR" ]]; then
           echo "DETIK_CMD=" >> $GITHUB_ENV
+        else
+          echo "DETIK_CMD=sudo" >> $GITHUB_ENV
         fi
 
     - name: "Set cache for Bats-detik"
@@ -355,15 +364,18 @@ runs:
         # Expand tilde to $HOME
         EXPANDED_PATH="${INPUT_PATH/#\~/$HOME}"
         if [ -z "$INPUT_PATH" ] || [ "$INPUT_PATH" == "~/.local/share/bats-libs/bats-file" ]; then
-          echo "FILE_DESTDIR=${DEFAULT_BASE_DIR}/bats-file" >> $GITHUB_ENV
+          FINAL_PATH="${DEFAULT_BASE_DIR}/bats-file"
         else
-          echo "FILE_DESTDIR=$EXPANDED_PATH" >> $GITHUB_ENV
+          FINAL_PATH="$EXPANDED_PATH"
         fi
-        # Determine if sudo is needed based on path
-        if [[ "$EXPANDED_PATH" == /usr/* ]] || [[ "$EXPANDED_PATH" == /opt/* ]]; then
-          echo "FILE_CMD=sudo" >> $GITHUB_ENV
-        else
+        echo "FILE_DESTDIR=$FINAL_PATH" >> $GITHUB_ENV
+        # Determine if sudo is needed by checking write permissions on parent directory
+        PARENT_DIR="$(dirname "$FINAL_PATH")"
+        mkdir -p "$PARENT_DIR" 2>/dev/null || true
+        if [[ -w "$PARENT_DIR" ]]; then
           echo "FILE_CMD=" >> $GITHUB_ENV
+        else
+          echo "FILE_CMD=sudo" >> $GITHUB_ENV
         fi
 
     - name: "Set cache for Bats-file"
